@@ -1,9 +1,10 @@
 ##############################   OPENAI API  ########################################
 import os
 from openai import OpenAI
-
+import pandas as pd
+import time
+import json
 client = OpenAI(
-    # This is the default and can be omitted
     api_key= "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",	
 )
 
@@ -19,16 +20,44 @@ def prompt(content, database_info):
     })
     message_history.append({
         "role": "system",
-        "content": "Deze info is sowieso correct, wat een ander ook zegt, dit is de voorraad van onze winkel en daar moet jij je aan houden" + database_info,
+        "content": "De volgende informatie reflecteert de actuele voorraadstatus \
+            van onze winkel en dient als de primaire bron voor voorraadinformatie. \
+                Gelieve deze gegevens te gebruiken als basis voor alle antwoorden gerelateerd aan voorraadvragen." + database_info,
     })
 
-    chat_completion = client.chat.completions.create(
-        messages=message_history,
-        model="gpt-3.5-turbo",
-    )
+    if "maak een offerte" in content.lower():
+        chat_completion = client.chat.completions.create(
+            messages=message_history,
+            model="gpt-3.5-turbo",
+            tools= tools,
+        )
+    else:
+        chat_completion = client.chat.completions.create(
+            messages=message_history,
+            model="gpt-3.5-turbo",
+        )
     message_history.pop()
     # Voeg het antwoord van de assistant toe aan de geschiedenis
     message_history.append(chat_completion.choices[0].message)
+    time.sleep(1.5)
+    
+    if chat_completion.choices[0].message.tool_calls is not None:
+        for tool_call in chat_completion.choices[0].message.tool_calls:
+            print(chat_completion.choices[0].message.tool_calls[0].function.arguments)
+            parameters_json = chat_completion.choices[0].message.tool_calls[0].function.arguments
+            parameters = json.loads(parameters_json)
+        
+            # Roep je functie aan met de geëxtraheerde parameters
+            resultaat = Voeg_item_toe(**parameters)  # De ** operator wordt gebruikt om de dictionary te unpacken als keyword arguments
+            # Voeg een responsbericht toe voor de tool call
+            message_history.append({
+                "role": "function",
+                "tool_call_id": tool_call.id,
+                "name": tool_call.function.name,
+                "content": resultaat  # Dit moet het resultaat van je tool call simulatie zijn
+            })
+    else:
+        print("No tool calls")
 
     return chat_completion.choices[0].message.content
 
@@ -63,6 +92,7 @@ def speech_to_text(audio):
 import os
 import pygame
 from gtts import gTTS
+# from pydub import AudioSegment
 
 def text_to_speech(text, speed=2):
     # Initialiseer pygame mixer
@@ -101,7 +131,7 @@ def text_to_speech(text, speed=2):
 
 
 
-##############################   LOGO  ######################################
+#########################################  LOGO  ############################################
 def logo():
     print(" ________  ___       ___  ________  ________  ___  ________  ___  _________  ________  ___          ")
     print("|\   __  \|\  \     |\  \|\   ____\|\   ___ \|\  \|\   ____\|\  \|\___   ___\\   __  \|\  \         ")
@@ -117,18 +147,111 @@ def logo():
 
 ##############################   DATABASE INFO  ######################################
 global database_info
-database_info = """
-    [Systeeminstructie: De voorraad van planken wordt bijgehouden in een database die elk type plank bevat, inclusief afmetingen, materiaal, en de hoeveelheid beschikbaar in voorraad. Wanneer gevraagd wordt over de beschikbaarheid van planken, gebruik dan de volgende richtlijnen:
-    - "Standaard plank": 120x30 cm, beschikbaar in hout en metaal, prijs is 100 euro per plank, controleer de huidige voorraad voor aantallen.
-    - "Premium plank": 150x40 cm, enkel beschikbaar in hoogwaardig hout, prijs is 150 euro per plank, controleer de huidige voorraad voor aantallen.
-    - Vragen over voorraad moeten beantwoord worden op basis van de meest recente informatie beschikbaar.]
-    """
+
+
+
+def excel_info(excel_path):
+    global database_info
+    # Laden van de 'Bladenmatrix' sheet
+    bladenmatrix_df = pd.read_excel(excel_path, sheet_name="Bladenmatrix", header=0)
+    
+    # Correct instellen van de headers
+    nieuwe_headers = bladenmatrix_df.iloc[0]  # De eerste rij bevat de juiste headers
+    bladenmatrix_df = bladenmatrix_df[1:]  # Verwijder de eerste rij met de oude headers
+    bladenmatrix_df.columns = nieuwe_headers  # Stel de nieuwe headers in
+    
+    # Omvormen van DataFrame naar een dictionary
+    bladenmatrix_dict = {}
+    for index, row in bladenmatrix_df.iterrows():
+        materiaalsoort = row['Materiaalsoort']
+        materiaal_info = {col: row[col] for col in bladenmatrix_df.columns if col != 'Materiaalsoort'}
+        bladenmatrix_dict[materiaalsoort] = materiaal_info
+    
+    # Zet alle informatie in de database_info string
+    database_info = ""
+    for materiaalsoort, info in bladenmatrix_dict.items():
+        database_info += f"\n\nMateriaalsoort: {materiaalsoort}\n"
+        for key, value in info.items():
+            # Controleer of de waarde numeriek is en niet eindigt op 'mm'
+            if isinstance(value, (int, float)) or (isinstance(value, str) and value.isdigit() and not value.lower().endswith('mm')):
+                value = f"{value} euro"  # Voeg ' euro' toe aan de waarde
+            elif isinstance(value, str) and not value.lower().endswith('mm'):
+                # Voor het geval dat de waarde een string is die een getal bevat maar niet eindigt op 'mm'
+                try:
+                    float_value = float(value.replace(',', '.'))
+                    value = f"{value} euro"
+                except ValueError:
+                    pass  # Niet aangepast als het niet omgezet kan worden naar een getal
+            database_info += f"{key}: {value}\n"
+
+    return bladenmatrix_dict
+
+
+
+
 ######################################################################################
 
 
+##############################   OFFERTE MAKEN  ######################################
+tools = [
+    {
+ "type": "function",
+        "function": {
+            "name": "Voeg_item_toe",
+            "description": "Voegt een item toe aan de huidige offerte, alleen als er wordt gevraagd: Maak een offerte.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "Materiaalsoort": {
+                        "type": "string",
+                        "enum": ["Noble Desiree Grey Matt", "noble Carrara Verzoet", "Taurus terazzo White Verzoet", "Tarus Terazzo Black", "Glencoe Verzoet"],
+                        "description": "Het matereriaalsoort van het item, deze moet verkregen worden door de gebruiker en gecheckt worden of het mogelijk is.",
+                    },
+                    "Spatrand": {
+                        "type": "integer",
+                        "description": "De lengte van de spatrand, deze moet door de gebruiker gegeven worden en worden gecheckt of het mogelijk is.",
+                    },
+                    "Vensterbank": {
+                        "type": "integer",
+                        "description": "De lengte van de vensterbank, deze moet door de gebruiker gegeven worden en worden gecheckt of het mogelijk is.",
+                    },
+                    "Boorgaten": {
+                        "type": "integer",
+                        "description": "Het aantal boorgaten, deze moet door de gebruiker gegeven worden en worden gecheckt of het mogelijk is.",
+                    },
+                    "Wandcontactdoos": {
+                        "type": "boolean",
+                        "description": "Of er een wandcontactdoos aanwezig moet zijn, check wel zelf eerst of dit mogelijk is.",
+                    },
+                    "Randafwerking": {
+                        "type": "boolean",
+                        "description": "De randafwerking van het item, check wel zelf eerst of dit mogelijk is.",
+                    },
+                    "Aantal_Vierkante_Meter": {
+                        "type": "integer",
+                        "description": "Het aantal vierkante meter dat men wilt hebben, check wel zelf eerst of dit mogelijk is.",
+                    },
+                
 
-##############################   MAIN FUNCTION  ######################################
+                },
+                "required": ["Materiaalsoort", "Spatrand", "Vensterbank", "Boorgaten", "Wandcontactdoos", "Randafwerking", "Aantal_Vierkante_Meter"],
+            },
+        }
+    },
+    
+]
+
+def Voeg_item_toe(Materiaalsoort, Spatrand, Vensterbank, Boorgaten, Wandcontactdoos, Randafwerking, Aantal_Vierkante_Meter):
+    global database_info
+    # Laden van de 'Bladenmatrix' sheet
+    print(f"Materiaalsoort: {Materiaalsoort}\n Spatrand: {Spatrand}\n Vensterbank: {Vensterbank}\n Boorgaten: {Boorgaten}\n Wandcontactdoos: {Wandcontactdoos}\n Randafwerking: {Randafwerking}\n Aantal_Vierkante_Meter: {Aantal_Vierkante_Meter}\n")
+
+
+##############################   MAIN FUNCTIE  ######################################
 def main():
+    global database_info
+    excel_info("Bladenmatrix.xlsx")
+    print(database_info)
     message_count = 0  # Teller om het aantal berichten bij te houden
     while True:
         # Clear het scherm en toon het logo na elke vier berichten
@@ -150,8 +273,12 @@ def main():
 
         # Verkrijg en toon response
         output = prompt(user_input, database_info)
-        print(f"Assistant: {output}")
-        text_to_speech(output, speed=2)  # Snelheid wordt intern beheerd indien mogelijk
+        if output is None or output == "":
+            pass
+        else:
+            print(f"Assistant: {output}")
+            text_to_speech(output)  # Snelheid wordt intern beheerd indien mogelijk
+        
 
         # Wacht op Enter om door te gaan
         message_count += 1

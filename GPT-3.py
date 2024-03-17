@@ -1,40 +1,35 @@
-import os
-from openai import OpenAI
-import time
-start_time = time.time()
-client = OpenAI(
-    api_key= "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",	
+import pandas as pd
+import sqlite3
+
+# Stap 1: Lees het Excel-bestand
+excel_path = 'Bladenmatrix.xlsx'  # Pas dit pad aan naar jouw bestand
+df = pd.read_excel(excel_path, header=1, sheet_name='Bladenmatrix')  # Pas de sheet_name aan indien nodig
+
+# Verbinden met SQLite-database
+conn = sqlite3.connect('./data/Offerte.sql')
+cursor = conn.cursor()
+
+# Stap 2: Maak een tabel aan genaamd materiaalsoorten
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS materiaalsoorten (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    materiaalsoort TEXT
 )
+''')
+#insert  Noble Desiree Grey Matt
+conn.commit()
 
-message_history = []
 
-def prompt(content, database_info):
-    global message_history  # Verwijs naar de globale variabele
+# Stap 3: Vul de tabel met de materiaalsoorten
+materiaalsoorten = df['Materiaalsoort'].unique()
+for materiaalsoort in materiaalsoorten:
+    cursor.execute('''
+    INSERT INTO materiaalsoorten (materiaalsoort)
+    VALUES (?)
+    ''', (materiaalsoort,))
+conn.commit()
+conn.close()
+#edit value in row
+# cursor.execute("UPDATE materiaal_0 SET 'soort' = 'Hout' WHERE id = 1")
 
-    # Voeg de nieuwe gebruikersinvoer toe aan de geschiedenis
-    message_history.append({
-        "role": "user",
-        "content": content,
-    })
-    message_history.append({
-        "role": "system",
-        "content": "De volgende informatie reflecteert de actuele voorraadstatus \
-            van onze winkel en dient als de primaire bron voor voorraadinformatie. \
-                Gelieve deze gegevens te gebruiken als basis voor alle antwoorden gerelateerd aan voorraadvragen." + database_info,
-    })
-
-    chat_completion = client.chat.completions.create(
-        messages=message_history,
-        model="gpt-3.5-turbo",
-    )
-    message_history.pop()
-    # Voeg het antwoord van de assistant toe aan de geschiedenis
-    message_history.append(chat_completion.choices[0].message)
-
-    return chat_completion.choices[0].message.content
-
-if __name__ == "__main__":
-    print("Why are banana's straight?")
-    print(prompt("Why are banana's straight?", "Bananen: 100 stuks"))
-    elapsed_time = time.time() - start_time
-    print("Totale uitvoertijd: ", elapsed_time, " seconden.")
+print("Tabellen succesvol aangemaakt en gevuld met gegevens.")

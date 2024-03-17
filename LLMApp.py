@@ -5,7 +5,7 @@ import pandas as pd
 import time
 import json
 client = OpenAI(
-    api_key= "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",	
+    api_key= "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",	
 )
 
 message_history = []
@@ -28,13 +28,13 @@ def prompt(content, database_info):
     if "maak een offerte" in content.lower():
         chat_completion = client.chat.completions.create(
             messages=message_history,
-            model="gpt-3.5-turbo",
+            model="gpt-4.5-turbo",
             tools= tools,
         )
     else:
         chat_completion = client.chat.completions.create(
             messages=message_history,
-            model="gpt-3.5-turbo",
+            model="gpt-4.5-turbo",
         )
     message_history.pop()
     # Voeg het antwoord van de assistant toe aan de geschiedenis
@@ -234,14 +234,14 @@ tools = [
                 
 
                 },
-                "required": ["Materiaalsoort", "Spatrand", "Vensterbank", "Boorgaten", "Wandcontactdoos", "Randafwerking", "Aantal_Vierkante_Meter"],
+                
             },
         }
     },
     
 ]
 
-def Voeg_item_toe(Materiaalsoort, Spatrand, Vensterbank, Boorgaten, Wandcontactdoos, Randafwerking, Aantal_Vierkante_Meter):
+def Voeg_item_toe(Materiaalsoort=None, Spatrand=None, Vensterbank=None, Boorgaten=None, Wandcontactdoos=None, Randafwerking=None, Aantal_Vierkante_Meter=None ):
     global database_info
     # Laden van de 'Bladenmatrix' sheet
     print(f"Materiaalsoort: {Materiaalsoort}\n Spatrand: {Spatrand}\n Vensterbank: {Vensterbank}\n Boorgaten: {Boorgaten}\n Wandcontactdoos: {Wandcontactdoos}\n Randafwerking: {Randafwerking}\n Aantal_Vierkante_Meter: {Aantal_Vierkante_Meter}\n")
@@ -263,8 +263,9 @@ def main():
         # Record audio en converteer naar tekst
         print("\nDruk op Enter om te beginnen met opnemen...")
         input()
-        audio = record_audio()
-        user_input = speech_to_text(audio)
+        # audio = record_audio()
+        # user_input = speech_to_text(audio)
+        user_input = (input("Wat wilt u vragen? "))
         print(f"Jij: {user_input}")
 
         # Check voor stopwoord of commando om af te sluiten

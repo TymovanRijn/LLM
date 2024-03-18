@@ -21,29 +21,46 @@ def get_table_names(conn):
     return table_names
 
 
-def get_column_names(table_name):
-    """Return a list of column names."""
-    column_names = []
+def get_column_details(table_name):
+    """Return a list of column names with types and default values."""
+    column_details = []
     columns = connection.execute(f"PRAGMA table_info('{table_name}');").fetchall()
     for col in columns:
-        column_names.append(col[1])
-    return column_names
+        # Elk item in 'col' representeert een kolom in de tabel, waarbij:
+        # col[1] de kolomnaam is, col[2] het datatype, en col[4] de default waarde
+        name = col[1]
+        data_type = col[2]
+        default_val = f"DEFAULT {col[4]}" if col[4] else ""
+        column_details.append(f"{name} {data_type} {default_val}".strip())
+    return column_details
 
-
+def get_table_sample_data(table_name, limit=2):
+    """Return a sample of table data (first few rows)."""
+    try:
+        sample_data = connection.execute(f"SELECT * FROM {table_name} LIMIT {limit};").fetchall()
+        return sample_data
+    except Exception as e:
+        return f"Error retrieving sample data: {e}"
+    
 def get_database_info(conn):
-    """Return a list of dicts containing the table name and columns for each table in the database."""
-    table_dicts = []
+    """Return detailed information about the database, including table schema and sample data."""
+    table_info = []
     for table_name in get_table_names(conn):
-        columns_names = get_column_names(table_name)
-        table_dicts.append({"table_name": table_name, "column_names": columns_names})
-    return table_dicts
+        column_details = get_column_details(table_name)
+        sample_data = get_table_sample_data(table_name)
+        table_info.append({
+            "table_name": table_name,
+            "column_names": column_details,
+            "sample_data": sample_data
+        })
+    return table_info
 
 
 
 database_scheme_dict = get_database_info(connection)
 database_schema_string = "\n".join(
     [
-        f"Table: {table['table_name']}\nColumns: {', '.join(table['column_names'])}"
+        f"Table: {table['table_name']}\nColumns: {', '.join(table['column_names'])}\nSample Data: {table['sample_data']}"
         for table in database_scheme_dict
     ]
 )
@@ -88,7 +105,9 @@ tools = [
                                 {database_schema_string}
                                 The query should be returned in plain text, not in JSON.
                                 HET IS OOK HEEL BELANGRIJK DAT JE CHECKT OF WAT ER GEVRAAGD WORDT MOGELIJK IS, BIJVOORBEELD, ALS ER BIJ EEN OFFERTE MET HET MATERIAALSOORT TAURUS TERRAZO WHITE VERZOET WORDT GEVRAAGD, MAG HET NIET ZO ZIJN DAT ER BOORGATEN TOEGEVOEGD KUNNEN WORDEN AAN DE OFFERTE! TEN ALLE TIJDEN NIET!, GEEF DAN ALS INPUT DAT HET NIET MOGELIJK IS OM BOORGATEN TOE TE VOEGEN AAN DE OFFERTE.
+                                ALS EEN VRAAG GAAT OVER EEN MATERIAALSOORT MOET JE MEESTAL KIJKEN IN DE TABLE bladmatrix, ALS DE VRAAG GAAT OVER EEN OFFERTE MOET JE MEESTAL KIJKEN IN DE TABLE OFFERTE.
                                 Als de offerte tabel moet veranderen gebruik dan alleen de UPDATE statement en gebruik nooit de INSERT, er mag maar 1 ROW blijven ten alle tijden in de offerte tabel.
+                                Als je op WCD(wandcontactdoos) moet zoeken, noteer het dan op deze manier: "WCD_(Wandcontactdoos)", anders werkt het niet
                                 """,
                     }
                 },
@@ -108,9 +127,10 @@ def chat_completion_request(messages, tools):
         )
     return chat_completion
 
+# print(database_schema_string)
 messages = []
 messages.append({"role": "system", "content": f"Answer user questions by generating SQL queries against the Offerte Database, which has the following schema:\n{database_schema_string}"})
-messages.append({"role": "user", "content": "Welke materiaalsoorten zijn er?"})
+messages.append({"role": "user", "content": "Voeg toe aan de offerte materiaalsoort noble carrara"})
 chat_response = chat_completion_request(messages, tools)
 assistant_message = chat_response.choices[0].message
 assistant_message.content = str(assistant_message.tool_calls[0].function)
@@ -118,8 +138,6 @@ messages.append({"role": assistant_message.role, "content": assistant_message.co
 if assistant_message.tool_calls:
     results = execute_function_call(assistant_message)
     messages.append({"role": "function", "tool_call_id": assistant_message.tool_calls[0].id, "name": assistant_message.tool_calls[0].function.name, "content": results})
-    print(messages)
-    print("---------------------------------")
     print(results)
 
 

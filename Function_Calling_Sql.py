@@ -93,7 +93,7 @@ tools = [
         "type": "function",
         "function": {
             "name": "ask_database",
-            "description": "Gebruik deze functie om de Offerte database te bevragen met een SQL-query. De query moet in platte tekst worden geretourneerd, niet in JSON.",
+            "description": "Gebruik deze functie om de Offerte database te bevragen met een SQL-query. De query moet in platte tekst worden geretourneerd, niet in JSON. De query mag ook GEEN rekenwerk bevatten! Er mogen geen prijzen ingesteld worden dit gebeurt achteraf automatisch, Als er iets aan de offerte moet worden toegevoegd mag je alleen dat doen en geen berekeningen uitvoeren",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -101,13 +101,16 @@ tools = [
                         "type": "string",
                         "description": f"""
                                 SQL query extracting info to answer the user's question.
-                                SQL should be written using this database schema:
+                                SQL moet geschreven worden volgens dit database schema:
                                 {database_schema_string}
                                 The query should be returned in plain text, not in JSON.
                                 HET IS OOK HEEL BELANGRIJK DAT JE CHECKT OF WAT ER GEVRAAGD WORDT MOGELIJK IS, BIJVOORBEELD, ALS ER BIJ EEN OFFERTE MET HET MATERIAALSOORT TAURUS TERRAZO WHITE VERZOET WORDT GEVRAAGD, MAG HET NIET ZO ZIJN DAT ER BOORGATEN TOEGEVOEGD KUNNEN WORDEN AAN DE OFFERTE! TEN ALLE TIJDEN NIET!, GEEF DAN ALS INPUT DAT HET NIET MOGELIJK IS OM BOORGATEN TOE TE VOEGEN AAN DE OFFERTE.
                                 ALS EEN VRAAG GAAT OVER EEN MATERIAALSOORT MOET JE MEESTAL KIJKEN IN DE TABLE bladmatrix, ALS DE VRAAG GAAT OVER EEN OFFERTE MOET JE MEESTAL KIJKEN IN DE TABLE OFFERTE.
                                 Als de offerte tabel moet veranderen gebruik dan alleen de UPDATE statement en gebruik nooit de INSERT, er mag maar 1 ROW blijven ten alle tijden in de offerte tabel.
                                 Als je op WCD(wandcontactdoos) moet zoeken, noteer het dan op deze manier: "WCD_(Wandcontactdoos)", anders werkt het niet
+                                JE HOEFT NOOIT ZELF EEN PRIJS IN TE VOEREN IN DE OFFERTE, DIT WORDT AUTOMATISCH GEDAAN, DUS BETREK DIT NOOOOIT IN JE SQL STATEMENT. Dus nooit een query maken voor de offerte_prijs waar je zelf een prijs invoert.
+                                ZET OOK ALLLEEE KOLOM NAMEN TUSSEN APOSTROFEN, DUS 'kolomnaam' NIET kolomnaam
+
                                 """,
                     }
                 },
@@ -129,8 +132,9 @@ def chat_completion_request(messages, tools):
 
 # print(database_schema_string)
 messages = []
-messages.append({"role": "system", "content": f"Answer user questions by generating SQL queries against the Offerte Database, which has the following schema:\n{database_schema_string}"})
-messages.append({"role": "user", "content": "Voeg toe aan de offerte materiaalsoort noble carrara"})
+messages.append({"role": "system", "content": f"Beantwoord de vragen door het creëren van een sql query, Die verwijst naar het volgende database schema:\n{database_schema_string}"})
+prompt = input("Vraag iets: ")
+messages.append({"role": "user", "content": f"{prompt}"})
 chat_response = chat_completion_request(messages, tools)
 assistant_message = chat_response.choices[0].message
 assistant_message.content = str(assistant_message.tool_calls[0].function)

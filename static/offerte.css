@@ -1,0 +1,23 @@
+.current-offerte {
+  margin: 20px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 10px;
+}
+
+#offerteTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#offerteTable th,
+#offerteTable td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+#offerteTable th {
+  background-color: #4caf50;
+  color: white;
+}

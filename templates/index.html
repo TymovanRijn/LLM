@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chat App</title>
+    <link
+      href="https://fonts.googleapis.com/css?family=Open+Sans"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./static/chatbox.css" />
+    <link rel="stylesheet" href="./static/offerte.css" />
+    <!-- mCustomScrollbar CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/malihu-custom-scrollbar-plugin/3.1.5/jquery.mCustomScrollbar.min.css"
+    />
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- mCustomScrollbar JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/malihu-custom-scrollbar-plugin/3.1.5/jquery.mCustomScrollbar.concat.min.js"></script>
+  </head>
+  <body>
+    <div class="current-offerte">
+      <h3>Current Quote</h3>
+      <table id="offerteTable">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Quantity</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Offerte items worden hier ingeladen via AJAX -->
+        </tbody>
+      </table>
+    </div>
+    <div class="chat">
+      <div class="chat-title">
+        <h1>Chat Assistant</h1>
+        <h2>Blis Digital</h2>
+        <figure class="avatar">
+          <img src="./static/avatar_icon.png" />
+        </figure>
+      </div>
+      <div class="messages">
+        <div class="messages-content"></div>
+      </div>
+      <div class="message-box">
+        <textarea
+          type="text"
+          class="message-input"
+          placeholder="Type message..."
+        ></textarea>
+        <button type="submit" class="message-submit">Send</button>
+      </div>
+    </div>
+    <div class="bg"></div>
+
+    <script>
+      $(document).ready(function () {
+        var $messages = $(".messages-content"),
+          d,
+          h,
+          m;
+        $messages.mCustomScrollbar();
+
+        function updateScrollbar() {
+          $messages
+            .mCustomScrollbar("update")
+            .mCustomScrollbar("scrollTo", "bottom", {
+              scrollInertia: 10,
+              timeout: 0,
+            });
+        }
+
+        function insertMessage() {
+          var msg = $(".message-input").val();
+          if ($.trim(msg) == "") {
+            return false;
+          }
+          $('<div class="message message-personal">' + msg + "</div>")
+            .appendTo($(".mCSB_container"))
+            .addClass("new");
+          $(".message-input").val(null);
+          updateScrollbar();
+          // Verzend het bericht naar de server
+          $.ajax({
+            url: "/send_message",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ message: msg }),
+            success: function (response) {
+              // Voeg het antwoord van de assistent toe aan de chat
+              $(
+                '<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' +
+                  response.response +
+                  "</div>"
+              )
+                .appendTo($(".mCSB_container"))
+                .addClass("new");
+              updateScrollbar();
+            },
+          });
+        }
+
+        $(".message-submit").click(function () {
+          insertMessage();
+        });
+
+        $(window).on("keydown", function (e) {
+          if (e.which == 13) {
+            insertMessage();
+            return false;
+          }
+        });
+      });
+
+      function loadOfferteData() {
+        $.ajax({
+          url: "/get_offerte_data", // Vervang dit door het juiste endpoint
+          type: "GET",
+          success: function (response) {
+            // Veronderstel dat de response een array van offerte-items is
+            response.forEach(function (item) {
+              var row =
+                "<tr>" +
+                "<td>" +
+                item.name +
+                "</td>" +
+                "<td>" +
+                item.quantity +
+                "</td>" +
+                "<td>" +
+                item.price +
+                "</td>" +
+                "</tr>";
+              $("#offerteTable tbody").append(row);
+            });
+          },
+          error: function (error) {
+            console.log("Error loading offerte data:", error);
+          },
+        });
+      }
+
+      $(document).ready(function () {
+        loadOfferteData(); // Roep deze functie aan wanneer de pagina geladen is
+        // De rest van je document.ready functie...
+      });
+    </script>
+  </body>
+</html>

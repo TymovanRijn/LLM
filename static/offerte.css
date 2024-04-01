@@ -1,23 +1,72 @@
+/*--------------------
+Offerte Styles
+--------------------*/
 .current-offerte {
-  margin: 20px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 10px;
+  position: absolute;
+  top: 10%;
+  right: 0; /* Verander de waarde van 'right' naar 0 om de offerte naar rechts te verplaatsen */
+  transform: translate(
+    0,
+    0
+  ); /* Verander de waarde van 'translate' naar (0, 0) */
+
+  width: 40%;
+  min-width: 300px;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  color: #fff;
+  font-family: "Open Sans", sans-serif;
+  overflow: hidden;
+  z-index: 2;
 }
 
+.current-offerte h3 {
+  background: rgba(0, 0, 0, 0.2);
+  text-align: center;
+  margin: 0;
+  padding: 15px 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/*--------------------
+  Offerte Table
+  --------------------*/
 #offerteTable {
   width: 100%;
   border-collapse: collapse;
+  overflow: hidden;
+}
+
+#offerteTable thead {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 #offerteTable th,
 #offerteTable td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  padding: 10px;
   text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #offerteTable th {
-  background-color: #4caf50;
-  color: white;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
 }
+
+#offerteTable td {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+
+#offerteTable tr:last-child td {
+  border-bottom: none;
+}
+
+/*--------------------
+  Additional Styles
+  --------------------*/
+/* Je kunt hier extra stijlen toevoegen voor specifieke behoeften van de offerte weergave */

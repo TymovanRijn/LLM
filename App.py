@@ -58,13 +58,14 @@ def get_db_connection():
 def get_offerte_data():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT * FROM offerte_prijs')  # Update de query indien nodig
+    cur.execute('SELECT * FROM offerte_prijs WHERE ID=1')  # Update de query indien nodig
     offerte_items = cur.fetchall()
 
     # Converteer de resultaten naar een lijst van dicts zodat jsonify ze kan verwerken
     offerte_list = [dict(ix) for ix in offerte_items]
 
     conn.close()
+    print(offerte_list)
     return jsonify(offerte_list)
 
 

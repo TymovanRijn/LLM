@@ -257,27 +257,24 @@ Message Box
   background: rgba(0, 0, 0, 0.3);
   padding: 10px;
   position: relative;
+  display: flex; /* Zorg voor flexbox layout in de message box */
+  align-items: center; /* Centreer items verticaal */
+  justify-content: space-between;
 }
+
 .message-box .message-input {
+  flex-grow: 1; /* Laat de input flexibel groeien om beschikbare ruimte op te vullen */
   background: none;
   border: none;
   outline: none !important;
   resize: none;
   color: rgba(255, 255, 255, 0.7);
   font-size: 11px;
-  height: 17px;
-  margin: 0;
-  padding-right: 20px;
-  width: 265px;
+  padding: 0 10px; /* Voeg padding toe om ruimte aan beide kanten vrij te maken */
+  margin-right: 10px; /* Ruimte tussen de input en de knoppen */
 }
-.message-box textarea:focus:-webkit-placeholder {
-  color: transparent;
-}
+
 .message-box .message-submit {
-  position: absolute;
-  z-index: 1;
-  top: 9px;
-  right: 10px;
   color: #fff;
   border: none;
   background: #248a52;
@@ -287,10 +284,25 @@ Message Box
   padding: 6px 10px;
   border-radius: 10px;
   outline: none !important;
+  cursor: pointer;
   transition: background 0.2s ease;
 }
+
 .message-box .message-submit:hover {
   background: #1d7745;
+}
+
+.microphone-button {
+  margin-right: 5px; /* Zorg voor een kleine marge tussen microfoon en SEND knop */
+}
+
+.microphone-button img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.message-box textarea:focus:-webkit-placeholder {
+  color: transparent;
 }
 
 /*--------------------

@@ -71,14 +71,14 @@ def get_offerte_data():
 
 @app.route('/send_message', methods=['POST'])
 def chat():
+    import json
     data = request.json
     message_content = data['message']
 
     # Maak de berichtenlijst voor deze aanvraag; verondersteld dat je dit per sessie of aanvraag beheert
     messages = [{"role": "user", "content": message_content}]
-
     # Hier voeg je de systeemboodschap toe, zoals je eerder deed
-    messages.append({"role": "system", "content": "Beantwoord de vragen Super netjes en beleefd. Je werkt bij BlisDigital."})
+    messages.append({"role": "system", "content": f"Beantwoord de vragen Super netjes en beleefd. Je werkt bij BlisDigital. Dit is de huidige Database van de offerte: \n" + database_schema_string + "\nJe mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven. Als iets niet mogelijk is met een bepaalde materiaalsoort mag je dus ook ten alle tijden het niet mogelijk maken in de offerte."})
     
     chat_completion = chat_completion_request(messages=messages, tools=tools)
 
@@ -87,7 +87,7 @@ def chat():
             results = execute_function_call(assistant_message)
             messages.append({"role": "function", "tool_call_id": assistant_message.tool_calls[0].id, "name": assistant_message.tool_calls[0].function.name, "content": results})
             print(results)
-            response_content = "Succesvol uitgevoerd!"
+            response_content = "Succesvol uitgevoerd!" + results
         
     else:
         response_content = chat_completion.choices[0].message.content

@@ -1,4 +1,9 @@
 $(document).ready(function () {
+  var $messages = $(".messages-content"),
+    d,
+    h,
+    m;
+  $messages.mCustomScrollbar();
   var recognition;
   if ("SpeechRecognition" in window) {
     recognition = new SpeechRecognition();

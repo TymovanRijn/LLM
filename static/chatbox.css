@@ -273,7 +273,12 @@ Message Box
   padding: 0 10px; /* Voeg padding toe om ruimte aan beide kanten vrij te maken */
   margin-right: 10px; /* Ruimte tussen de input en de knoppen */
 }
-
+.phone-icon-container {
+  position: absolute;
+  top: 10px; /* Pas aan op basis van je layout */
+  right: 10px; /* Pas aan op basis van je layout */
+  cursor: pointer;
+}
 .message-box .message-submit {
   color: #fff;
   border: none;

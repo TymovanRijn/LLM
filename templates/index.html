@@ -110,6 +110,7 @@
                 .appendTo($(".mCSB_container"))
                 .addClass("new");
               updateScrollbar();
+              loadOfferteData();
             },
           });
         }
@@ -130,54 +131,53 @@
         $.ajax({
           url: "/get_offerte_data",
           type: "GET",
+          cache: false, // Disable AJAX caching
           success: function (response) {
             $("#offerteTable tbody").empty();
-            let totaalPrijs = 0; // Initialiseer een variabele om de totale prijs bij te houden
+            let totaalPrijs = 0;
 
             if (response.length > 0) {
-              const item = response[0]; // Aangenomen dat er maar één item (ID=1) wordt geladen
+              const item = response[0];
 
-              // Loop eerst door alle normale velden die niet beginnen met 'Prijs_'
               Object.keys(item).forEach(function (key) {
                 if (!key.startsWith("Prijs_") && key !== "ID" && key !== "m2") {
-                  // Veronderstelt dat ID en m2 niet als aparte rijen getoond moeten worden
                   var value = item[key] === null ? "N/A" : item[key];
                   var prijsKey = "Prijs_" + key;
                   var prijsValue = item[prijsKey]
                     ? item[prijsKey].toFixed(2)
                     : "N/A";
-                  if (item[prijsKey]) totaalPrijs += parseFloat(item[prijsKey]); // Voeg toe aan totaal als er een prijs is
+                  if (item[prijsKey]) {
+                    totaalPrijs += parseFloat(item[prijsKey]);
+                  }
 
                   var row = `<tr>
-                                <td class="column-name">${key}</td>
-                                <td class="column-value">${value}</td>
-                                <td class="column-price">${prijsValue}</td>
-                            </tr>`;
+                         <td class="column-name">${key}</td>
+                         <td class="column-value">${value}</td>
+                         <td class="column-price">${prijsValue}</td>
+                       </tr>`;
                   $("#offerteTable tbody").append(row);
                 }
               });
 
-              // Speciale rij voor m2 als die bestaat
               if (item["m2"] !== null && item["m2"] !== undefined) {
-                var m2Row = `<tr>
-                            <td class="column-name">m2</td>
-                            <td class="column-value">${item["m2"]}</td>
-                            <td class="column-price">-</td>
-                        </tr>`;
-                $("#offerteTable tbody").append(m2Row);
+                $("#offerteTable tbody").append(`<tr>
+                                            <td class="column-name">m2</td>
+                                            <td class="column-value">${item["m2"]}</td>
+                                            <td class="column-price">-</td>
+                                          </tr>`);
               }
 
-              // Voeg na het itereren over alle velden, een totaalrij toe aan de tabel
-              var totaalRij = `<tr>
-                        <td class="column-name">Totaal</td>
-                        <td></td>
-                        <td class="column-price">${totaalPrijs.toFixed(2)}</td>
-                    </tr>`;
-              $("#offerteTable tbody").append(totaalRij);
+              $("#offerteTable tbody").append(`<tr>
+                                          <td class="column-name">Totaal</td>
+                                          <td></td>
+                                          <td class="column-price">${totaalPrijs.toFixed(
+                                            2
+                                          )}</td>
+                                        </tr>`);
             }
           },
-          error: function (error) {
-            console.log("Error loading offerte data:", error);
+          error: function (xhr, status, error) {
+            console.log("Error loading offerte data:", xhr, status, error);
           },
         });
       }

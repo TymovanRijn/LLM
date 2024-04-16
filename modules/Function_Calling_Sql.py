@@ -5,10 +5,9 @@ from openai import OpenAI
 client = OpenAI(
     api_key= "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",	
 )
-connection = sqlite3.connect('./data/Offerte.sql')
+
 
 #Delete table Offerte
-
 
 
 
@@ -57,18 +56,14 @@ def get_database_info(conn):
 
 
 
-database_scheme_dict = get_database_info(connection)
-database_schema_string = "\n".join(
-    [
-        f"Table: {table['table_name']}\nColumns: {', '.join(table['column_names'])}\nSample Data: {table['sample_data']}"
-        for table in database_scheme_dict
-    ]
-)
+
 
 
 
 def ask_database(query):
     """Function to query SQLite database with a provided SQL query."""
+    if "DELETE" in query.upper():
+        return "Error: DELETE operation is not allowed"
     try:
         connection = sqlite3.connect('./data/Offerte.sql')
         cursor = connection.cursor()
@@ -82,48 +77,107 @@ def ask_database(query):
     return results
 
 def execute_function_call(message):
-    if message.tool_calls[0].function.name == "ask_database":
+    
+    # print("EXECUTE FUNCTION CALL: " + message.tool_calls[0].message.content)
+    if message.tool_calls[0].function.name == "add_to_offerte_table":
         query = json.loads(message.tool_calls[0].function.arguments)["query"]
-        results = ask_database(query)
-        print(query, "results")
+        print("DIT IS DE QUERY: " + query)
+        query_check = check_query(query)
+        print("DIT IS DE CHECK: " + query_check)
+        if "JA" in query_check.upper():
+            results = ask_database(query)
+        else:
+            results = "Helaas is deze wijziging niet mogelijk."
+
+        print(results)
+        # print(query, "results")
     else:
         results = f"Error: function {message.tool_calls[0].function.name} does not exist"
     return results
 
+def get_materiaalsoort():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT Materiaalsoort FROM offerte_prijs WHERE ID=1')  # Update de query indien nodig
+    materiaalsoort = cur.fetchall()
+    conn.close()
+    return materiaalsoort
+
+def check_query(query):
+    materiaalsoort = get_materiaalsoort()
+    print (materiaalsoort[0])
+    materiaalsoort = materiaalsoort[0]
+    messages = []
+    messages.append({"role": "system", "content": f"""Als er een prijs van iets benoemd
+                      wordt (op de offerte_prijs na) bijvoorbeeld van randafwerking o.i
+                     .d in deze SQL query ({query}) op de offerte_prijs na, 
+                     geef dan een nieuwe QUERY terug zonder dat die prijs wordt 
+                     aangepast, HEEL BELANGRIJK! bij voorbeeld deze query:
+                     UPDATE offerte_prijs SET Boorgaten = '10', Prijs_Boorgaten = 67.5 * 2 WHERE ID = 1;
+                     zou niet mogen, omdat Prijs_Boorgaten wordt aangepast.
+                      Dit is de query die je moet beoordelen: {query}
+                        Wanneer de nieuwe prijs op NULL wordt gezet van iets dan is het wel
+                      een geldige query en mag die dus behouden worden, anders niet!
+                        GEEF ALLEEN DE NIEUWE QUERY ALS ANTWOORD NIKS ANDERS!
+                       ALS ER GEEN PRIJS WORDT GENOEMD BEHOUDT DAN DE ORIGINELE QUERY 
+                       EN GEEF ALLEEEN DIE TERUG!!"""})
+    chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="gpt-4-turbo-preview",
+        )
+    
+    print("CHECK 0: " + chat_completion.choices[0].message.content)
+    if "JA" in chat_completion.choices[0].message.content.upper():
+        query = query
+    else:
+        query = chat_completion.choices[0].message.content
+
+    messages = []
+    if "SET MATERIAALSOORT" not in query.upper() and "SET 'MATERIAALSOORT'" not in query.upper():
+
+        
+        messages.append({"role": "system", "content": f""""""})
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="gpt-4-turbo-preview",
+        )
+        result = chat_completion.choices[0].message.content
+    else:
+        result = "JA"
 
 
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "ask_database",
-            "description": "Gebruik deze functie ALLEEN om Producten in de offerte table te zetten via een SQL query. \
-            Bij vragen over de producten maak je GEEN gebruik van deze functie.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": f"""
-                               
-                                SQL moet geschreven worden volgens dit database schema:
-                                {database_schema_string}
-                                
+    
+    
+    
+    return result
 
-                                """,
-                    }
-                },
-                "required": ["query"],
-            },
-        }
-    }
-]
+def get_db_connection():
+    return sqlite3.connect('./data/Offerte.sql', check_same_thread=False)
 
+connection = get_db_connection()
+
+global database_schema_string
+database_schema_string = ""
+
+def update_database_schema_string():
+    global database_schema_string
+    database_scheme_dict = get_database_info(connection)
+    database_schema_string = "\n".join(
+        [
+            f"Table: {table['table_name']}\nColumns: {', '.join(table['column_names'])}\nSample Data: {table['sample_data']}"
+            for table in database_scheme_dict
+        ]
+    )
+    return database_schema_string
 
 def chat_completion_request(messages, tools):
+    
+    
+    materiaalsoort = get_materiaalsoort()[0]
+    
     """Function to send a chat completion request to the OpenAI API."""
     messages.append({"role": "system", "content": f"Beantwoord de vragen aan de hand van de informatie uit de de excel/database:\n{database_info}. \
-                         Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."})
+                         Momenteel is de gekozen materiaal soort {materiaalsoort} Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."})
     chat_completion = client.chat.completions.create(
             messages=messages,
             model="gpt-4-turbo-preview",
@@ -171,6 +225,33 @@ def excel_info(excel_path):
     return bladenmatrix_dict
 
 
+# tools = [
+#     {
+#         "type": "function",
+#         "function": {
+#             "name": "add_to_offerte_table",
+#             "description": "Gebruik deze functie ALLEEN om Producten in de offerte table toe te voegen via een SQL query. \
+#             Bij vragen over de producten maak je GEEN gebruik van deze functie maar gebruik jij je eigen kennis!.",
+#             "parameters": {
+#                 "type": "object",
+#                 "properties": {
+#                     "query": {
+#                         "type": "string",
+#                         "description": f"""
+#                                ER MOET EERST GEKEKEN WORDEN OF DE TOEVOEGING WEL MOGELIJK IS! BIJVOORBEELD BIJ GLENCOE VERZOET ZIJN BOORGATEN NIET MOGELIJK, DUS ALS DE MATERIAALSOORT GLENCOE VERZOET IS MOGEN ER GEEN BOORGATEN WORDEN TOEGEVOEGD AAN DE OFFERTE, HOUD HIER REKENING MEE!
+#                                 SQL moet geschreven worden volgens dit database schema:
+#                                 {database_schema_string}
+                                
+
+#                                 """,
+#                     }
+#                 },
+#                 "required": ["query"],
+#             },
+#         }
+#     }
+# ]
+
 
 # print(database_schema_string)
 if __name__ == "__main__":
@@ -178,6 +259,7 @@ if __name__ == "__main__":
     excel_path = "Bladenmatrix.xlsx"
     database_info = excel_info(excel_path)
     while True:
+        print("TOOLS: " + tools)
         
         prompt = input("Vraag iets: ")
         messages.append({"role": "user", "content": f"{prompt}"})
@@ -191,11 +273,11 @@ if __name__ == "__main__":
         if assistant_message.tool_calls:
             results = execute_function_call(assistant_message)
             messages.append({"role": "function", "tool_call_id": assistant_message.tool_calls[0].id, "name": assistant_message.tool_calls[0].function.name, "content": results})
-            print(results)
+            # print(results)
             connection.close()
         else:
             messages.append({"role": assistant_message.role, "content": assistant_message.content})
-            print(assistant_message.content)
+            # print(assistant_message.content)
    
             
         

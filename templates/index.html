@@ -131,7 +131,7 @@
         $.ajax({
           url: "/get_offerte_data",
           type: "GET",
-          cache: false, // Disable AJAX caching
+          cache: false,
           success: function (response) {
             $("#offerteTable tbody").empty();
             let totaalPrijs = 0;
@@ -183,8 +183,7 @@
       }
 
       $(document).ready(function () {
-        loadOfferteData(); // Roep deze functie aan wanneer de pagina geladen is
-        // De rest van je document.ready functie...
+        loadOfferteData();
       });
     </script>
   </body>

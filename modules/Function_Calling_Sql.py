@@ -123,7 +123,7 @@ def check_query(query):
                        EN GEEF ALLEEEN DIE TERUG!!"""})
     chat_completion = client.chat.completions.create(
             messages=messages,
-            model="gpt-4-turbo-preview",
+            model="gpt-4-turbo",
         )
     
     print("CHECK 0: " + chat_completion.choices[0].message.content)
@@ -133,13 +133,13 @@ def check_query(query):
         query = chat_completion.choices[0].message.content
 
     messages = []
-    if "SET MATERIAALSOORT" not in query.upper() and "SET 'MATERIAALSOORT'" not in query.upper():
-
-        
-        messages.append({"role": "system", "content": f""""""})
+    if "SET MATERIAALSOORT" not in query.upper() and "SET 'MATERIAALSOORT'" not in query.upper() and "SET 'M2'" not in query.upper() and "SET M2" not in query.upper():
+        print(f"Set materiaal zit er niet in, {query.upper()}")
+        messages.append({"role": "system", "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
+                         goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""})
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model="gpt-4-turbo-preview",
+            model="gpt-4-turbo",
         )
         result = chat_completion.choices[0].message.content
     else:
@@ -180,7 +180,7 @@ def chat_completion_request(messages, tools):
                          Momenteel is de gekozen materiaal soort {materiaalsoort} Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."})
     chat_completion = client.chat.completions.create(
             messages=messages,
-            model="gpt-4-turbo-preview",
+            model="gpt-4-turbo",
             tools= tools,
         )
     return chat_completion
@@ -225,60 +225,7 @@ def excel_info(excel_path):
     return bladenmatrix_dict
 
 
-# tools = [
-#     {
-#         "type": "function",
-#         "function": {
-#             "name": "add_to_offerte_table",
-#             "description": "Gebruik deze functie ALLEEN om Producten in de offerte table toe te voegen via een SQL query. \
-#             Bij vragen over de producten maak je GEEN gebruik van deze functie maar gebruik jij je eigen kennis!.",
-#             "parameters": {
-#                 "type": "object",
-#                 "properties": {
-#                     "query": {
-#                         "type": "string",
-#                         "description": f"""
-#                                ER MOET EERST GEKEKEN WORDEN OF DE TOEVOEGING WEL MOGELIJK IS! BIJVOORBEELD BIJ GLENCOE VERZOET ZIJN BOORGATEN NIET MOGELIJK, DUS ALS DE MATERIAALSOORT GLENCOE VERZOET IS MOGEN ER GEEN BOORGATEN WORDEN TOEGEVOEGD AAN DE OFFERTE, HOUD HIER REKENING MEE!
-#                                 SQL moet geschreven worden volgens dit database schema:
-#                                 {database_schema_string}
-                                
 
-#                                 """,
-#                     }
-#                 },
-#                 "required": ["query"],
-#             },
-#         }
-#     }
-# ]
-
-
-# print(database_schema_string)
-if __name__ == "__main__":
-    messages = []
-    excel_path = "Bladenmatrix.xlsx"
-    database_info = excel_info(excel_path)
-    while True:
-        print("TOOLS: " + tools)
-        
-        prompt = input("Vraag iets: ")
-        messages.append({"role": "user", "content": f"{prompt}"})
-        chat_response = chat_completion_request(messages, tools)
-        assistant_message = chat_response.choices[0].message
-        try:
-            assistant_message.content = str(assistant_message.tool_calls[0].function)
-            messages.append({"role": assistant_message.role, "content": assistant_message.content})
-        except:
-            pass
-        if assistant_message.tool_calls:
-            results = execute_function_call(assistant_message)
-            messages.append({"role": "function", "tool_call_id": assistant_message.tool_calls[0].id, "name": assistant_message.tool_calls[0].function.name, "content": results})
-            # print(results)
-            connection.close()
-        else:
-            messages.append({"role": assistant_message.role, "content": assistant_message.content})
-            # print(assistant_message.content)
-   
             
         
 

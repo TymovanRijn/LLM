@@ -1,16 +1,20 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, session, request, jsonify, render_template
 from modules.Function_Calling_Sql import chat_completion_request
 from modules.Function_Calling_Sql import database_schema_string
 from modules.Function_Calling_Sql import excel_info
 from modules.Function_Calling_Sql import execute_function_call
 from modules.Function_Calling_Sql import update_database_schema_string
 from flask_cors import CORS
+import uuid
 import sqlite3
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
 
 database_info = excel_info("Bladenmatrix.xlsx")
 
@@ -117,6 +121,9 @@ def chat():
 
 @app.route('/')
 def home():
+    if 'UserSession' not in session:
+        session['UserSession'] = str(uuid.uuid4())
+    print("UserSession ID: ", session['UserSession'])
     return render_template('index.html')
 
 if __name__ == '__main__':

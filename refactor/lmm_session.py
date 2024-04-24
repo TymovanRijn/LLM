@@ -1,4 +1,5 @@
 from typing import Any
+from openai import OpenAI
 
 
 class _Messages:
@@ -58,6 +59,7 @@ class LMMSession:
 
     def __init__(self, api_key: str, db_connection) -> None:
         self._api_key = api_key
+        self._client = OpenAI(api_key=api_key)
         self._db_connection = db_connection
 
     @property
@@ -103,7 +105,7 @@ class LMMSession:
     def _get_table_sample_data(self, table_name, limit=2):
         """Return a sample of table data (first few rows)."""
         try:
-            sample_data = connection.execute(f"SELECT * FROM {table_name} LIMIT {limit};").fetchall()
+            sample_data = self._db_connection.execute(f"SELECT * FROM {table_name} LIMIT {limit};").fetchall()
             return sample_data
         except Exception as e:
             return f"Error retrieving sample data: {e}"
@@ -114,12 +116,14 @@ class LMMSession:
             f"Table: {table['table_name']}\nColumns: {', '.join(table['column_names'])}\nSample Data: {table['sample_data']}"
             for table in database_schema_dict
         ))
+        return database_schema_string
 
     def _append_message(self, role: str, content: str) -> None:
         self._messages.append({"role": role, "content": content})
 
     def _append_system_guideline_message(self, messages: list):
         database_schema_string = self._gen_database_schema_string()
+        print(f"{database_schema_string=}")
         messages.append({
             "role": "system",
             "content": f"Beantwoord de vragen Super netjes en beleefd. Je werkt bij BlisDigital. Dit is de huidige Database van de offerte: \n{database_schema_string}\nJe mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven. Als iets niet mogelijk is met een bepaalde materiaalsoort mag je dus ook ten alle tijden het niet mogelijk maken in de offerte."
@@ -134,17 +138,18 @@ class LMMSession:
 
     def _request_chat_completion(self, messages: list) -> Any:
         materiaal_soort = self._get_materiaal_soort()
-        database_info = gen
-        messages.append(
-            "system",
-            f"Beantwoord de vragen aan de hand van de informatie uit de de excel/database:\n{database_info}. Momenteel is de gekozen materiaal soort {materiaalsoort} Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."
-        )
+        database_info = self._gen_database_schema_string()
+        materiaalsoort = self._get_materiaal_soort()
+        messages.append({
+            "role": "system",
+            "content": f"Beantwoord de vragen aan de hand van de informatie uit de de excel/database:\n{database_info}. Momenteel is de gekozen materiaal soort {materiaalsoort} Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."
+        })
         return self._create_completion(messages, self._tools)
 
     def _create_completion(self, messages: list, tools=None) -> Any:
-        return client.chat.completions.create(
+        return self._client.chat.completions.create(
             messages=messages,
-            model="gtp-4-turbo",
+            model="gpt-4-turbo",
             tools=tools
         )
 
@@ -179,9 +184,9 @@ class LMMSession:
     def _check_query(self, query) -> None:
         materiaal_soort = self._get_materiaal_soort()
         messages = _Messages()
-        messages.append(
-            "system",
-            f"""Als er een prijs van iets benoemd
+        messages.append({
+            "role": "system",
+            "content": f"""Als er een prijs van iets benoemd
                       wordt (op de offerte_prijs na) bijvoorbeeld van randafwerking o.i
                      .d in deze SQL query ({query}) op de offerte_prijs na, 
                      geef dan een nieuwe QUERY terug zonder dat die prijs wordt 
@@ -194,7 +199,7 @@ class LMMSession:
                         GEEF ALLEEN DE NIEUWE QUERY ALS ANTWOORD NIKS ANDERS!
                        ALS ER GEEN PRIJS WORDT GENOEMD BEHOUDT DAN DE ORIGINELE QUERY 
                        EN GEEF ALLEEEN DIE TERUG!!"""
-        )
+        })
         chat_completion = self._create_completion(messages.messages)
         if "JA" not in chat_completion.choices[0].message.content.upper():
             query = chat_completion.choices[0].message.content.upper();
@@ -206,11 +211,11 @@ class LMMSession:
             and "SET 'M2'" not in query.upper()
             and "SET M2" not in query.upper()
         ):
-            messages.append(
-                "system",
-                f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
+            messages.append({
+                "role": "system",
+                "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
                          goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
-            )
+            })
             chat_completion = self._create_completion(messages.messages)
             result = chat_completion.choices[0].message.content
         else:
@@ -235,6 +240,6 @@ class LMMSession:
                 response_content = "Succesvol uitgevoerd!"
         # Just return the LMM's response to the user
         else:
-            response_content = chat_completion_choices[0].messages.content
+            response_content = chat_completion.choices[0].message.content
         return response_content
 

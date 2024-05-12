@@ -1,6 +1,11 @@
 from typing import Any
 from openai import OpenAI
 
+import os
+from dotenv import load_dotenv
+import json
+
+load_dotenv()
 
 class _Messages:
     def __init__(self) -> None:
@@ -159,22 +164,28 @@ class LMMSession:
         ).fetchone()
 
     def _execute_function_call(self, message):
-        if message.tools_calls[0].function_name == "add_to_offerte_table":
+        if message.tool_calls[0].function.name == "add_to_offerte_table":
             query = json.loads(message.tool_calls[0].function.arguments)["query"]
-            query_check = check_query(query)
+            print("DIT IS DE QUERY: " + query)
+            query_check = self._check_query(query)  # Gebruik self om de methode aan te roepen
+            print("DIT IS DE CHECK: " + query_check)
             if "JA" in query_check.upper():
-                results = self._try_query_database(query)
+                results = self._try_query_database(query)  # Gebruik self om de methode aan te roepen
             else:
                 results = "Helaas is deze wijziging niet mogelijk."
+            print(results)
         else:
             results = f"Error: function {message.tool_calls[0].function.name} does not exist"
         return results
 
     def _try_query_database(self, query):
-        if not self._check_sql_query(query):
+        if self._check_sql_query(query) == "NEE":
             return "Error: DELETE operation is not allowed"
         cursor = self._db_connection.cursor()
         results = str(cursor.execute(query).fetchall())
+        self._db_connection.commit()
+        cursor.close()
+        
         return results
 
     @staticmethod
@@ -184,27 +195,22 @@ class LMMSession:
     def _check_query(self, query) -> None:
         materiaal_soort = self._get_materiaal_soort()
         messages = _Messages()
-        messages.append({
-            "role": "system",
-            "content": f"""Als er een prijs van iets benoemd
-                      wordt (op de offerte_prijs na) bijvoorbeeld van randafwerking o.i
-                     .d in deze SQL query ({query}) op de offerte_prijs na, 
-                     geef dan een nieuwe QUERY terug zonder dat die prijs wordt 
-                     aangepast, HEEL BELANGRIJK! bij voorbeeld deze query:
-                     UPDATE offerte_prijs SET Boorgaten = '10', Prijs_Boorgaten = 67.5 * 2 WHERE ID = 1;
-                     zou niet mogen, omdat Prijs_Boorgaten wordt aangepast.
-                      Dit is de query die je moet beoordelen: {query}
-                        Wanneer de nieuwe prijs op NULL wordt gezet van iets dan is het wel
-                      een geldige query en mag die dus behouden worden, anders niet!
-                        GEEF ALLEEN DE NIEUWE QUERY ALS ANTWOORD NIKS ANDERS!
-                       ALS ER GEEN PRIJS WORDT GENOEMD BEHOUDT DAN DE ORIGINELE QUERY 
-                       EN GEEF ALLEEEN DIE TERUG!!"""
-        })
+        messages.append(
+            role="system",
+            content=f"""Als er een prijs van iets benoemd wordt (op de offerte_prijs na) bijvoorbeeld van randafwerking o.i.d in deze SQL query ({query}) op de offerte_prijs na, 
+            geef dan een nieuwe QUERY terug zonder dat die prijs wordt aangepast, HEEL BELANGRIJK! bij voorbeeld deze query:
+            UPDATE offerte_prijs SET Boorgaten = '10', Prijs_Boorgaten = 67.5 * 2 WHERE ID = 1;
+            zou niet mogen, omdat Prijs_Boorgaten wordt aangepast.
+            Dit is de query die je moet beoordelen: {query}
+            Wanneer de nieuwe prijs op NULL wordt gezet van iets dan is het wel een geldige query en mag die dus behouden worden, anders niet!
+            GEEF ALLEEN DE NIEUWE QUERY ALS ANTWOORD NIKS ANDERS!
+            ALS ER GEEN PRIJS WORDT GENOEMD BEHOUDT DAN DE ORIGINELE QUERY EN GEEF ALLEEN DIE TERUG!!"""
+        )
         chat_completion = self._create_completion(messages.messages)
         if "JA" not in chat_completion.choices[0].message.content.upper():
-            query = chat_completion.choices[0].message.content.upper();
+            query = chat_completion.choices[0].message.content.upper()
 
-        messages = Messages()
+
         if (
             "SET MATERIAALSOORT" not in query.upper()
             and "SET MATERIAALSOORT" not in query.upper()
@@ -213,8 +219,8 @@ class LMMSession:
         ):
             messages.append({
                 "role": "system",
-                "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
-                         goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
+                "content": f"""Je moet kijken of de gekozen materiaalsoort ({self.materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
+                         goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {self.database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
             })
             chat_completion = self._create_completion(messages.messages)
             result = chat_completion.choices[0].message.content
@@ -228,13 +234,12 @@ class LMMSession:
         self._append_system_guideline_message(messages)
         chat_completion = self._request_chat_completion(messages)
         assistant_message = chat_completion.choices[0].message
-        # Try to call a function if the LMM asks to
         if assistant_message.tool_calls:
-            self._execute_function_call(assistant_message)
-            self._messages.append(
+            results = self._execute_function_call(assistant_message)
+            messages.append(
                 {"role": "function", "tool_call_id": assistant_message.tool_calls[0].id, "name": assistant_message.tool_calls[0].function.name, "content": results}
             )
-            if "HELAAS IS DEZE WIJZIGING NIET MOGELIJK" in results.upper():
+            if "HELAAS " in results.upper():
                 response_content = "Helaas is deze wijziging niet mogelijk."
             else:
                 response_content = "Succesvol uitgevoerd!"

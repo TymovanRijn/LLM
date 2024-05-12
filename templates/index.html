@@ -96,6 +96,7 @@
                   success: function(response) {
                       $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + response.response + '</div>').appendTo($(".mCSB_container")).addClass("new");
                       updateScrollbar();
+                      loadOfferteData();
                   }
               });
           }

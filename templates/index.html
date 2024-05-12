@@ -71,6 +71,7 @@
     <script>
       $(document).ready(function() {
           var $messages = $(".messages-content");
+          var isRequestPending = false; // Voeg een vlag toe om de aanvraagstatus bij te houden
           $messages.mCustomScrollbar();
   
           function updateScrollbar() {
@@ -81,32 +82,46 @@
           }
   
           function insertMessage() {
-              var msg = $(".message-input").val();
-              if ($.trim(msg) == "") {
-                  return false;
-              }
-              $('<div class="message message-personal">' + msg + '</div>').appendTo($(".mCSB_container")).addClass("new");
-              $(".message-input").val(null);
-              updateScrollbar();
-              $.ajax({
-                  url: "/send_message",
-                  type: "POST",
-                  contentType: "application/json",
-                  data: JSON.stringify({message: msg}),
-                  success: function(response) {
-                      $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + response.response + '</div>').appendTo($(".mCSB_container")).addClass("new");
-                      updateScrollbar();
-                      loadOfferteData();
-                  }
-              });
-          }
+        if (isRequestPending) return; // Voorkom verzenden als een aanvraag bezig is
+        var msg = $(".message-input").val();
+        if ($.trim(msg) == "") {
+            return false;
+        }
+        $('<div class="message message-personal">' + msg + '</div>').appendTo($(".mCSB_container")).addClass("new");
+        $(".message-input").val(null);
+        updateScrollbar();
+
+        // Deactiveer invoerveld en verzendknop
+        $(".message-input").prop('disabled', true);
+        $(".message-submit").prop('disabled', true);
+
+        isRequestPending = true; // Zet de vlag op true omdat de aanvraag begonnen is
+
+        $.ajax({
+            url: "/send_message",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({message: msg}),
+            success: function(response) {
+                $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + response.response + '</div>').appendTo($(".mCSB_container")).addClass("new");
+                updateScrollbar();
+                loadOfferteData();
+            },
+            complete: function() {
+                // Reactieveer invoerveld en verzendknop
+                $(".message-input").prop('disabled', false);
+                $(".message-submit").prop('disabled', false);
+                isRequestPending = false; // Zet de vlag terug op false omdat de aanvraag voltooid is
+            }
+        });
+    }
   
           $(".message-submit").click(function() {
               insertMessage();
           });
   
           $(window).on("keydown", function(e) {
-              if (e.which == 13) {
+            if (e.which == 13 && !isRequestPending) {
                   insertMessage();
                   return false;
               }

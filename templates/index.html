@@ -36,6 +36,7 @@
           <!-- Offerte items worden hier ingeladen via AJAX -->
         </tbody>
       </table>
+      <button id="downloadPdfButton" class="download-pdf">Save to PDF</button>
     </div>
     <div class="chat">
       <div class="chat-title">
@@ -68,65 +69,54 @@
     <div class="bg"></div>
 
     <script>
-      $(document).ready(function () {
-        var $messages = $(".messages-content"),
-          d,
-          h,
-          m;
-        $messages.mCustomScrollbar();
-
-        function updateScrollbar() {
-          $messages
-            .mCustomScrollbar("update")
-            .mCustomScrollbar("scrollTo", "bottom", {
-              scrollInertia: 10,
-              timeout: 0,
-            });
-        }
-
-        function insertMessage() {
-          var msg = $(".message-input").val();
-          if ($.trim(msg) == "") {
-            return false;
+      $(document).ready(function() {
+          var $messages = $(".messages-content");
+          $messages.mCustomScrollbar();
+  
+          function updateScrollbar() {
+              $messages.mCustomScrollbar("update").mCustomScrollbar("scrollTo", "bottom", {
+                  scrollInertia: 10,
+                  timeout: 0
+              });
           }
-          $('<div class="message message-personal">' + msg + "</div>")
-            .appendTo($(".mCSB_container"))
-            .addClass("new");
-          $(".message-input").val(null);
-          updateScrollbar();
-          // Verzend het bericht naar de server
-          $.ajax({
-            url: "/send_message",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ message: msg }),
-            success: function (response) {
-              // Voeg het antwoord van de assistent toe aan de chat
-              $(
-                '<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' +
-                  response.response +
-                  "</div>"
-              )
-                .appendTo($(".mCSB_container"))
-                .addClass("new");
+  
+          function insertMessage() {
+              var msg = $(".message-input").val();
+              if ($.trim(msg) == "") {
+                  return false;
+              }
+              $('<div class="message message-personal">' + msg + '</div>').appendTo($(".mCSB_container")).addClass("new");
+              $(".message-input").val(null);
               updateScrollbar();
-              loadOfferteData();
-            },
-          });
-        }
-
-        $(".message-submit").click(function () {
-          insertMessage();
-        });
-
-        $(window).on("keydown", function (e) {
-          if (e.which == 13) {
-            insertMessage();
-            return false;
+              $.ajax({
+                  url: "/send_message",
+                  type: "POST",
+                  contentType: "application/json",
+                  data: JSON.stringify({message: msg}),
+                  success: function(response) {
+                      $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + response.response + '</div>').appendTo($(".mCSB_container")).addClass("new");
+                      updateScrollbar();
+                  }
+              });
           }
-        });
+  
+          $(".message-submit").click(function() {
+              insertMessage();
+          });
+  
+          $(window).on("keydown", function(e) {
+              if (e.which == 13) {
+                  insertMessage();
+                  return false;
+              }
+          });
+  
+          $('#downloadPdfButton').click(function() {
+              window.location.href = '/download-pdf';
+          });
+  
+          loadOfferteData();
       });
-
       function loadOfferteData() {
         $.ajax({
           url: "/get_offerte_data",

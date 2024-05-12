@@ -1,4 +1,4 @@
-from flask import Flask, session, request, jsonify, render_template, abort, g
+from flask import Flask, session, request, jsonify, render_template, abort, send_file, g
 #from flask_cors import CORS
 import uuid
 import sqlite3
@@ -12,12 +12,44 @@ from lmm_session import LMMSession
 app = Flask(__name__, template_folder="../templates", static_folder="../static")
 #CORS(app)
 app.secret_key = os.urandom(24)
-
+3
 
 # import logging
 
 # logging.basicConfig(level=logging.DEBUG)
+from fpdf import FPDF
+def fetch_data():
+    db_path = f"data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
+    print(f"Dit is de locatie: {db_path}")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM offerte_prijs WHERE ID=1")
+    data = cursor.fetchall()
+    conn.close()
+    return data
 
+def create_pdf(data):
+    pdf = FPDF(orientation='P', format='A4')
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)  # Geschikte lettergrootte
+
+    # Structuur voor elk item apart
+    headers = ["Materiaalsoort", "Prijs Materiaalsoort", "Randafwerking", "Prijs Randafwerking", "Spatrand", "Prijs Spatrand", "Vensterbank", "Prijs Vensterbank", "Zeepdispenser", "Prijs Zeepdispenser", "Boorgaten", "Prijs Boorgaten", "WCD", "Prijs WCD", "Achterwand", "Prijs Achterwand", "m2"]
+    
+    if data:
+        for row in data:
+            pdf.cell(200, 10, txt=f"Offerte ID: {row[0]}", ln=True)
+            for i, item in enumerate(row[1:], 1):  # Skip ID
+                pdf.cell(200, 10, txt=f"{headers[i-1]}: {item if item is not None else 'N/A'}", ln=True)
+            pdf.ln(10)  # Voeg een extra regel toe na elk volledig item
+
+    pdf.output("offerte.pdf")
+
+@app.route('/download-pdf')
+def download_pdf():
+    data = fetch_data()
+    create_pdf(data)
+    return send_file("offerte.pdf", as_attachment=True)
 
 def get_db_conn(uuid_: str) -> sqlite3.Connection:
     base_dir = os.path.abspath(os.path.dirname(__file__))

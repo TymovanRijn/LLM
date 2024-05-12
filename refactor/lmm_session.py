@@ -219,7 +219,7 @@ class LMMSession:
         ):
             messages.append({
                 "role": "system",
-                "content": f"""Je moet kijken of de gekozen materiaalsoort ({self.materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
+                "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
                          goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {self.database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
             })
             chat_completion = self._create_completion(messages.messages)

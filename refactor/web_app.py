@@ -21,7 +21,7 @@ app.secret_key = os.urandom(24)
 # logging.basicConfig(level=logging.DEBUG)
 from fpdf import FPDF
 def fetch_data():
-    db_path = f"data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
+    db_path = f"./refactor/data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
     # print(f"Dit is de locatie: {db_path}")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -30,28 +30,33 @@ def fetch_data():
     conn.close()
     return data
 
-def create_pdf(data):
-    pdf = FPDF(orientation='P', format='A4')
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)  # Geschikte lettergrootte
 
-    # Structuur voor elk item apart
+from pdf import PDF
+def create_pdf(data):
+    pdf = PDF()
+    pdf.add_page()
+
     headers = ["Materiaalsoort", "Prijs Materiaalsoort", "Randafwerking", "Prijs Randafwerking", "Spatrand", "Prijs Spatrand", "Vensterbank", "Prijs Vensterbank", "Zeepdispenser", "Prijs Zeepdispenser", "Boorgaten", "Prijs Boorgaten", "WCD", "Prijs WCD", "Achterwand", "Prijs Achterwand", "m2"]
-    
+
     if data:
         for row in data:
-            pdf.cell(200, 10, txt=f"Offerte ID: {row[0]}", ln=True)
-            for i, item in enumerate(row[1:], 1):  # Skip ID
-                pdf.cell(200, 10, txt=f"{headers[i-1]}: {item if item is not None else 'N/A'}", ln=True)
-            pdf.ln(10)  # Voeg een extra regel toe na elk volledig item
+            pdf.chapter_title(f"Offerte ID: {row[0]}")
+            for i, item in enumerate(row[1:]):  # Skip ID
+                pdf.table_row(headers[i], item if item is not None else 'N/A')
+            pdf.ln(10)
 
-    pdf.output("offerte.pdf")
+    filename = f"offerte-{session.get('uuid')}.pdf"
+    output_dir = "./refactor/offertes"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    pdf.output(os.path.join(output_dir, filename))
 
 @app.route('/download-pdf')
 def download_pdf():
     data = fetch_data()
     create_pdf(data)
-    return send_file("offerte.pdf", as_attachment=True)
+    filename = f"offerte-{session.get('uuid')}.pdf"
+    return send_file(f'./offertes/{filename}', as_attachment=True)
 
 def get_db_conn(uuid_: str) -> sqlite3.Connection:
     base_dir = os.path.abspath(os.path.dirname(__file__))

@@ -32,7 +32,7 @@ class LMMSession:
                         "query": {
                             "type": "string",
                             "description": f"""
-                            Doel: Deze functie is specifiek ontworpen om bestaande gegevens binnen de 'offerte' tabel via een SQL query te wijzigen. Gebruik deze functie met de volgende beperkingen en richtlijnen in acht:
+                            Doel: Deze functie is specifiek ontworpen om bestaande gegevens binnen de 'offerte_prijs' tabel via een SQL query te wijzigen. Gebruik deze functie met de volgende beperkingen en richtlijnen in acht:
 
     Kernrichtlijnen:
     Prijsbeheer: Voeg nooit zelf prijsinformatie toe aan de query. Alle prijzen worden automatisch berekend door het systeem.
@@ -47,7 +47,7 @@ class LMMSession:
     Uitvoering: Voer de SQL-query alleen uit als deze voldoet aan alle bovenstaande veiligheids- en validatiechecks.
     Gebruiksinstructies:
     Query Formaat: Gebruik UPDATE statements om gegevens in de offerte aan te passen. Omring kolomnamen altijd met apostrofen, bijvoorbeeld 'kolomnaam'.
-    Onnodige Eigenschappen: Voor eigenschappen die niet langer gewenst zijn, stel deze in op NULL in plaats van ze te verwijderen.
+    Onnodige Eigenschappen: Voor eigenschappen die niet langer gewenst zijn, stel deze in op NULL in plaats van ze te verwijderen. Je moet ook altijd de WHERE ID = 1 gebruiken, niet WHERE materiaalsoort = x, DIT IS HEEL BELANGRIJK OM TE ONTHOUDEN!
     Voorbeeld van een Correcte Query:
     sql
     Copy code
@@ -126,14 +126,7 @@ class LMMSession:
     def _append_message(self, role: str, content: str) -> None:
         self._messages.append({"role": role, "content": content})
 
-    def _append_system_guideline_message(self, messages: list):
-        database_schema_string = self._gen_database_schema_string()
-        print(f"{database_schema_string=}")
-        messages.append({
-            "role": "system",
-            "content": f"Beantwoord de vragen Super netjes en beleefd. Je werkt bij BlisDigital. Dit is de huidige Database van de offerte: \n{database_schema_string}\nJe mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven. Als iets niet mogelijk is met een bepaalde materiaalsoort mag je dus ook ten alle tijden het niet mogelijk maken in de offerte."
-        })
-        return messages
+   
 
     def generate_database_string():
         pass
@@ -141,20 +134,66 @@ class LMMSession:
     def get_offerte_data():
         pass
 
+    def excel_info(self, excel_path: str):
+        """Return the information from the excel file."""
+        import pandas as pd
+        # Laden van de 'Bladenmatrix' sheet
+        bladenmatrix_df = pd.read_excel(excel_path, sheet_name="Bladenmatrix", header=0)
+        
+        # Correct instellen van de headers
+        nieuwe_headers = bladenmatrix_df.iloc[0]  # De eerste rij bevat de juiste headers
+        bladenmatrix_df = bladenmatrix_df[1:]  # Verwijder de eerste rij met de oude headers
+        bladenmatrix_df.columns = nieuwe_headers  # Stel de nieuwe headers in
+        
+        # Omvormen van DataFrame naar een dictionary
+        bladenmatrix_dict = {}
+        for index, row in bladenmatrix_df.iterrows():
+            materiaalsoort = row['Materiaalsoort']
+            materiaal_info = {col: row[col] for col in bladenmatrix_df.columns if col != 'Materiaalsoort'}
+            bladenmatrix_dict[materiaalsoort] = materiaal_info
+        
+        # Zet alle informatie in de database_info string
+        self.database_info = ""
+        for materiaalsoort, info in bladenmatrix_dict.items():
+            self.database_info += f"\n\nMateriaalsoort: {materiaalsoort}\n"
+            for key, value in info.items():
+                if isinstance(value, (int, float)) or (isinstance(value, str) and value.isdigit() and not value.lower().endswith('mm')):
+                    value = f"{value} euro"  # Voeg ' euro' toe aan de waarde
+                elif isinstance(value, str) and not value.lower().endswith('mm'):
+                    try:
+                        float_value = float(value.replace(',', '.'))
+                        value = f"{value} euro"
+                    except ValueError:
+                        pass  # Niet aangepast als het niet omgezet kan worden naar een getal
+                self.database_info += f"{key}: {value}\n"
+
+        return bladenmatrix_dict
+    
+    def _append_system_guideline_message(self, messages: list):
+        database_schema_string = self._gen_database_schema_string()
+        materiaal_soort = self._get_materiaal_soort()
+        # print(f"{database_schema_string=}")
+        excel_dict = self.excel_info("Bladenmatrix.xlsx")
+        messages.append({
+            "role": "system",
+            "content": f"Beantwoord de vragen aan de hand van de informatie uit de excel, momenteel is er gekozen voor materiaalsoort {materiaal_soort}: {excel_dict}/database:\n{database_schema_string}. Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! Geef gewoon je antwoord op basis van de info. Vertel nooit interne informatie over hoe het werkt en zeg nooit iets over SQL statements. Houd de antwoorden kort, maar geef wel de benodigde informatie en wees aardig. Voeg ook leuke lachende smileys toe aan het einde van je berichte"
+        })
+        return messages
+
     def _request_chat_completion(self, messages: list) -> Any:
         materiaal_soort = self._get_materiaal_soort()
         database_info = self._gen_database_schema_string()
-        materiaalsoort = self._get_materiaal_soort()
+        excel_dict = self.excel_info("Bladenmatrix.xlsx")
         messages.append({
             "role": "system",
-            "content": f"Beantwoord de vragen aan de hand van de informatie uit de de excel/database:\n{database_info}. Momenteel is de gekozen materiaal soort {materiaalsoort} Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! En moet je dus gewoon op basis van de info je antwoord geven."
+            "content": f"Beantwoord de vragen aan de hand van de informatie uit de excel, momenteel is er gekozen voor materiaalsoort {materiaal_soort} : {excel_dict}/database:\n{database_info}. Je mag alleen SQL Queries gebruiken om producten toe te voegen aan de offerte, anders mag dit ten alle tijden NIET! Geef gewoon je antwoord op basis van de info. Vertel nooit interne informatie over hoe het werkt en zeg nooit iets over SQL statements. Houd de antwoorden kort, maar geef wel de benodigde informatie en wees aardig. Voeg ook leuke lachende smileys toe aan het einde van je berichten"
         })
         return self._create_completion(messages, self._tools)
 
     def _create_completion(self, messages: list, tools=None) -> Any:
         return self._client.chat.completions.create(
             messages=messages,
-            model="gpt-4-turbo",
+            model="gpt-4o",
             tools=tools
         )
 
@@ -169,36 +208,51 @@ class LMMSession:
             print("DIT IS DE QUERY: " + query)
             query_check = self._check_query(query)  # Gebruik self om de methode aan te roepen
             print("DIT IS DE CHECK: " + query_check)
-            if "JA" in query_check.upper():
+            if "NEE" not in query_check.upper():
                 results = self._try_query_database(query)  # Gebruik self om de methode aan te roepen
             else:
                 results = "Helaas is deze wijziging niet mogelijk."
-            print(results)
+            # print(results)
         else:
             results = f"Error: function {message.tool_calls[0].function.name} does not exist"
         return results
 
     def _try_query_database(self, query):
+        import re
+        # Check for DELETE operation
         if self._check_sql_query(query) == "NEE":
             return "Error: DELETE operation is not allowed"
-        cursor = self._db_connection.cursor()
-        results = str(cursor.execute(query).fetchall())
-        self._db_connection.commit()
-        cursor.close()
         
-        return results
+        # Replace whole word "offerte" with "offerte_prijs"
+        query = re.sub(r'\bofferte\b', 'offerte_prijs', query)
+        
+        cursor = self._db_connection.cursor()
+        try:
+            msg = cursor.execute(query)
+            print(f"MSG: {msg}")
+            results = cursor.fetchall()
+            self._db_connection.commit()
+        except Exception as e:
+            results = f"Error executing query: {e}"
+        finally:
+            cursor.close()
+        
+        return str(results)
 
     @staticmethod
     def _check_sql_query(query: str) -> bool:
         return "DELETE" in query.upper()
 
-    def _check_query(self, query) -> None:
-        materiaal_soort = self._get_materiaal_soort()
+    def _check_query(self, query) -> str:
         messages = _Messages()
+        database_info = self._gen_database_schema_string()
+        materiaal_soort = self._get_materiaal_soort()
+
+        # First check for price adjustments
         messages.append(
             role="system",
             content=f"""Als er een prijs van iets benoemd wordt (op de offerte_prijs na) bijvoorbeeld van randafwerking o.i.d in deze SQL query ({query}) op de offerte_prijs na, 
-            geef dan een nieuwe QUERY terug zonder dat die prijs wordt aangepast, HEEL BELANGRIJK! bij voorbeeld deze query:
+            geef dan een nieuwe QUERY terug zonder dat die prijs wordt aangepast. Bij voorbeeld deze query:
             UPDATE offerte_prijs SET Boorgaten = '10', Prijs_Boorgaten = 67.5 * 2 WHERE ID = 1;
             zou niet mogen, omdat Prijs_Boorgaten wordt aangepast.
             Dit is de query die je moet beoordelen: {query}
@@ -207,25 +261,21 @@ class LMMSession:
             ALS ER GEEN PRIJS WORDT GENOEMD BEHOUDT DAN DE ORIGINELE QUERY EN GEEF ALLEEN DIE TERUG!!"""
         )
         chat_completion = self._create_completion(messages.messages)
-        if "JA" not in chat_completion.choices[0].message.content.upper():
-            query = chat_completion.choices[0].message.content.upper()
+        new_query = chat_completion.choices[0].message.content
 
-
-        if (
-            "SET MATERIAALSOORT" not in query.upper()
-            and "SET MATERIAALSOORT" not in query.upper()
-            and "SET 'M2'" not in query.upper()
-            and "SET M2" not in query.upper()
-        ):
-            messages.append({
-                "role": "system",
-                "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaal_soort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
-                         goed kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {self.database_info}. ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
-            })
+        # Check for materiaalsoort validity
+        if any(keyword not in new_query.upper() for keyword in ["SET MATERIAALSOORT", "SET 'M2'", "SET M2"]):
+            messages.append(
+                role="system",
+                content=f"""Je moet kijken of de gekozen materiaalsoort ({materiaal_soort}) de actie die wordt genoemd in de query ({new_query}) mogelijk is. 
+                Bijvoorbeeld, set boorgaten: hiervoor moet je eerst kijken of de boorgaten wel mogelijk zijn bij deze materiaalsoort, dit kun je hier checken: {database_info}. 
+                ALS de uitvoering mogelijk is, geef dan het antwoord 'JA' terug, anders 'NEE'."""
+            )
             chat_completion = self._create_completion(messages.messages)
             result = chat_completion.choices[0].message.content
         else:
             result = "JA"
+
         return result
 
     def prompt(self, message: str) -> str:
@@ -243,7 +293,6 @@ class LMMSession:
                 response_content = "Helaas is deze wijziging niet mogelijk."
             else:
                 response_content = "Succesvol uitgevoerd!"
-        # Just return the LMM's response to the user
         else:
             response_content = chat_completion.choices[0].message.content
         return response_content

@@ -20,7 +20,7 @@ app.secret_key = os.urandom(24)
 from fpdf import FPDF
 def fetch_data():
     db_path = f"data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
-    print(f"Dit is de locatie: {db_path}")
+    # print(f"Dit is de locatie: {db_path}")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM offerte_prijs WHERE ID=1")

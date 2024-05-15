@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 
 from lmm_session import LMMSession
+from openai import OpenAI
+client = OpenAI(api_key=os.environ["API_KEY"])
 
 
 app = Flask(__name__, template_folder="../templates", static_folder="../static")
@@ -102,6 +104,55 @@ def get_offerte_data():
 
     return jsonify([dict(ix) for ix in offerte_items])
 
+@app.route('/generate_speech', methods=['POST'])
+def generate_speech():
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+
+    # Generate a unique filename for the output file
+    filename = f"{uuid.uuid4()}.mp3"
+    static_dir = os.path.join(os.getcwd(), 'static')
+    audio_file_path = os.path.join(static_dir, filename)
+
+    try:
+        response = client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=text,
+        )
+
+        # Check if the response is received correctly
+        print("Response received:", response)
+        print("Response content type:", type(response.content))
+        print("Response content length:", len(response.content))
+
+        # Write the response content to a file
+        with open(audio_file_path, 'wb') as audio_file:
+            audio_file.write(response.content)
+            print(f"Audio content written to {audio_file_path}")
+
+        return jsonify({'filename': filename})
+
+    except Exception as e:
+        print(f"Error generating speech: {e}")
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/delete_audio/<filename>', methods=['DELETE'])
+def delete_audio(filename):
+    static_dir = os.path.join(os.getcwd(), 'static')
+    file_path = os.path.join(static_dir, filename)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({'message': f'{filename} deleted successfully.'}), 200
+        else:
+            return jsonify({'error': 'File not found.'}), 404
+    except Exception as e:
+        print(f"Error deleting file: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/send_message', methods=['POST'])
 def chat():

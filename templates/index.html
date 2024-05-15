@@ -16,8 +16,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/malihu-custom-scrollbar-plugin/3.1.5/jquery.mCustomScrollbar.concat.min.js"></script>
     <script src="/static/speech.js"></script>
     <script src="/static/call.js"></script>
+    <style>
+      /* Zorg ervoor dat de offerte-sectie standaard onzichtbaar is op kleine schermen */
+      @media (max-width: 768px) {
+        .current-offerte {
+          display: none;
+        }
+        #toggle-offerte {
+          display: block;
+        }
+      }
+      #toggle-offerte {
+        display: none;
+        margin: 10px;
+        padding: 10px;
+        background-color: #007BFF;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      .current-offerte {
+        margin-top: 20px;
+      }
+    </style>
   </head>
   <body>
+    <button id="toggle-offerte" type="button">Show/Hide Quote</button>
     <div class="current-offerte">
       <h3>Current Quote</h3>
       <table id="offerteTable">
@@ -128,6 +154,11 @@
         });
 
         loadOfferteData();
+
+        // Toggle offerte sectie
+        $("#toggle-offerte").click(function() {
+          $(".current-offerte").toggle();
+        });
       });
 
       function loadOfferteData() {

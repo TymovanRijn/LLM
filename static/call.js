@@ -18,14 +18,9 @@ $(document).ready(function () {
 
   $("#start-phone-call").click(function () {
     if (!isRecognizing) {
-      playStartSound();
-      recognition.start();
-      isRecognizing = true;
-      $(this).addClass("active");
+      startRecognition();
     } else {
-      recognition.stop();
-      isRecognizing = false;
-      $(this).removeClass("active");
+      stopRecognition();
     }
   });
 
@@ -49,19 +44,34 @@ $(document).ready(function () {
     }
   };
 
+  function startRecognition() {
+    playStartSound();
+    recognition.start();
+    isRecognizing = true;
+    $("#start-phone-call").addClass("active");
+  }
+
+  function stopRecognition() {
+    recognition.stop();
+    isRecognizing = false;
+    $("#start-phone-call").removeClass("active");
+  }
+
   function playStartSound() {
     var audio = new Audio("./static/telefoon_start.mp3");
     audio.play();
   }
 
   function processVoiceMessage(message) {
+    console.log("Processing voice message:", message);
     $.ajax({
       url: "/send_message",
       type: "POST",
       contentType: "application/json",
       data: JSON.stringify({ message: message }),
       success: function (response) {
-        speakResponse(response.response);
+        console.log("Response from /send_message:", response);
+        generateAndPlaySpeech(response.response);
         loadOfferteData(); // Call to update the offerte data after voice response
       },
       error: function (error) {
@@ -70,23 +80,47 @@ $(document).ready(function () {
     });
   }
 
-  function speakResponse(message) {
-    var utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = "nl-NL";
-    utterance.onend = function () {
-      if (isRecognizing) {
-        playStartSound();
-        recognition.start(); // Restart the speech recognition if the flag is true
+  function generateAndPlaySpeech(message) {
+    console.log("Generating and playing speech for message:", message);
+    $.ajax({
+      url: "/generate_speech",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ text: message }),
+      success: function (response) {
+        console.log("Speech generated successfully. Filename:", response.filename);
+        var audio = new Audio(`/static/${response.filename}`);
+        audio.play();
+        audio.onended = function() {
+          // Remove the audio file after it has been played
+          $.ajax({
+            url: `/delete_audio/${response.filename}`,
+            type: 'DELETE',
+            success: function() {
+              console.log(`${response.filename} deleted successfully.`);
+            },
+            error: function(error) {
+              console.error(`Error deleting ${response.filename}:`, error);
+            }
+          });
+          startRecognition();
+        };
+      },
+      error: function (error) {
+        console.error("Error generating speech:", error);
+        console.log("Error details:", error);
+        startRecognition(); // Restart recognition even if there is an error
       }
-    };
-    synthesizer.speak(utterance);
+    });
   }
+
   function loadOfferteData() {
     $.ajax({
       url: "/get_offerte_data",
       type: "GET",
       cache: false,
       success: function (response) {
+        console.log("Loaded offerte data:", response);
         $("#offerteTable tbody").empty();
         let totaalPrijs = 0;
 

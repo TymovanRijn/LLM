@@ -14,7 +14,10 @@ client = OpenAI(api_key=os.environ["API_KEY"])
 app = Flask(__name__, template_folder="../templates", static_folder="../static")
 #CORS(app)
 app.secret_key = os.urandom(24)
-3
+
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # import logging
 
@@ -109,6 +112,64 @@ def get_offerte_data():
 
     return jsonify([dict(ix) for ix in offerte_items])
 
+@app.route('/start_session', methods=['POST'])
+def start_session():
+    session_id = str(uuid.uuid4())
+    session['id'] = session_id
+    return jsonify({'session_id': session_id})
+
+@app.route('/upload_audio', methods=['POST'])
+def upload_audio():
+    if 'id' not in session:
+        return jsonify({'error': 'Session not started'}), 400
+
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    audio = request.files['audio']
+    session_id = session['id']
+    audio_filename = f"{session_id}_{uuid.uuid4()}.mp3"
+    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
+    audio.save(audio_path)
+
+    try:
+        transcription = transcribe_audio(audio_path)
+        return jsonify({'text': transcription})
+    except Exception as e:
+        # Log the exception to the server console
+        print(f"Error during transcription: {e}")
+        return jsonify({'error': 'An error occurred during transcription.'}), 500
+
+
+def transcribe_audio(audio_path):
+    try:
+        with open(audio_path, 'rb') as audio_file:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="json",
+                language="nl"
+            )
+
+        # Log the full response for debugging
+        print(f"Transcription service response: {response}")
+
+        # Check if the response has the 'text' attribute
+        if hasattr(response, 'text'):
+            transcription = response.text
+        else:
+            raise TypeError(f"Unexpected response format from transcription service: {response}")
+
+        # Delete the audio file after transcription
+        os.remove(audio_path)
+        print(f"Deleted audio file: {audio_path}")
+
+        return transcription
+    except Exception as e:
+        # Log the exception to the server console
+        print(f"Error in transcribe_audio function: {e}")
+        raise e
+
 @app.route('/generate_speech', methods=['POST'])
 def generate_speech():
     data = request.json
@@ -178,4 +239,4 @@ def home():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(port=5000)

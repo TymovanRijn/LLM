@@ -208,6 +208,19 @@ $(document).ready(function () {
     }
   }
 
+  // Function to delete audio
+  async function deleteAudio(filename) {
+    let response = await fetch(`/delete_audio/${filename}`, {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      console.log(`Deleted audio file: ${filename}`);
+    } else {
+      console.error(`Error deleting audio file: ${filename}`);
+    }
+  }
+
   // Function to play audio
   function playAudio(filename) {
     audio = new Audio(`/static/${filename}`);
@@ -215,9 +228,10 @@ $(document).ready(function () {
     audio.play().then(() => {
       console.log("Playing generated speech audio.");
       // Restart speech detection when the audio ends
-      audio.onended = () => {
+      audio.onended = async () => {
         console.log("Generated speech audio ended.");
         isAudioPlaying = false; // Reset flag when audio ends
+        await deleteAudio(filename); // Delete the audio file
         if (!stopLoop) {
           startSpeechDetection();
         }

@@ -17,9 +17,6 @@
   <script src="/static/speech.js"></script>
   <script src="/static/call.js"></script>
   <style>
-    /* Zorg ervoor dat de offerte-sectie standaard onzichtbaar is op kleine schermen */
-    /* Add this CSS to your stylesheet */
-
     @media (max-width: 768px) {
       .current-offerte {
         display: none;
@@ -110,7 +107,7 @@
         if ($.trim(msg) == "") {
           return false;
         }
-        $('<div class="message message-personal">' + msg + '</div>').appendTo($(".mCSB_container")).addClass("new");
+        $('<div class="message message-personal">' + processText(msg) + '</div>').appendTo($(".mCSB_container")).addClass("new");
         $(".message-input").val(null);
         updateScrollbar();
 
@@ -125,7 +122,7 @@
           contentType: "application/json",
           data: JSON.stringify({ message: msg }),
           success: function(response) {
-            $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + response.response + '</div>').appendTo($(".mCSB_container")).addClass("new");
+            $('<div class="message new"><figure class="avatar"><img src="./static/avatar_icon.png" /></figure>' + processText(response.response) + '</div>').appendTo($(".mCSB_container")).addClass("new");
             updateScrollbar();
             loadOfferteData();
           },
@@ -135,6 +132,10 @@
             isRequestPending = false;
           }
         });
+      }
+
+      function processText(text) {
+        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       }
 
       $(".message-submit").click(function() {

@@ -24,9 +24,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # logging.basicConfig(level=logging.DEBUG)
 from fpdf import FPDF
 def fetch_data():
-    db_path = f"./refactor/data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
+    # db_path = f"./refactor/data/{session.get('uuid')}.sql" if session.get('uuid') else 'default.db'
     # print(f"Dit is de locatie: {db_path}")
-    conn = sqlite3.connect(db_path)
+    conn = get_lmm_instance().db_connection
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM offerte_prijs WHERE ID=1")
     data = cursor.fetchall()
@@ -49,7 +49,7 @@ def create_pdf(data):
             pdf.ln(10)
 
     filename = f"offerte-{session.get('uuid')}.pdf"
-    output_dir = "./refactor/offertes"
+    output_dir = "./offertes"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     pdf.output(os.path.join(output_dir, filename))

@@ -133,6 +133,7 @@ def check_query(query):
         query = chat_completion.choices[0].message.content
 
     messages = []
+<<<<<<< HEAD
     if "SET MATERIAALSOORT" not in query.upper() and "SET 'MATERIAALSOORT'" not in query.upper() and "SET 'M2'" not in query.upper() and "SET M2" not in query.upper():
         print(f"Set materiaal zit er niet in, {query.upper()}")
         messages.append({"role": "system", "content": f"""Je moet kijken of de gekozen materiaalsoort ({materiaalsoort} de actie die wordt genoemd in de query ({query}) mogelijk is. Dus bijvoorbeeld Set boorgaten, hiervoor moet je eerst
@@ -142,13 +143,20 @@ def check_query(query):
             model="gpt-4-turbo",
         )
         result = chat_completion.choices[0].message.content
+=======
+    if "SET MATERIAALSOORT" not in query.upper() or "SET 'MATERIAALSOORT'" not in query.upper() or "SET M2" not in query.upper() or "SET 'M2'" not in query.upper() :
+
+        
+        # messages.append({"role": "system", "content": f"""Check"""})
+        # chat_completion = client.chat.completions.create(
+        #     messages=messages,
+        #     model="gpt-4-turbo-preview",
+        # )
+        # result = chat_completion.choices[0].message.content
+        pass
+>>>>>>> b4945a1 (Fix issue with check_query function not properly checking for materiaalsoort in the query)
     else:
         result = "JA"
-
-
-    
-    
-    
     return result
 
 def get_db_connection():

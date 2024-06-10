@@ -5,6 +5,7 @@ $(document).ready(function () {
   var audioChunks = [];
   var sessionId;
   var isRecording = false;
+  var microphoneIcon = $('#microphone-icon');
 
   // Function to start a new session
   async function startSession() {
@@ -24,6 +25,9 @@ $(document).ready(function () {
     mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.start();
     console.log("Recording started");
+
+    // Change microphone icon to red
+    microphoneIcon.attr('src', './static/microfoon_rood_icon.png');
 
     mediaRecorder.ondataavailable = (event) => {
       audioChunks.push(event.data);
@@ -54,6 +58,9 @@ $(document).ready(function () {
   function stopRecording() {
     mediaRecorder.stop();
     console.log("Recording stopped");
+
+    // Change microphone icon back to default
+    microphoneIcon.attr('src', './static/microfoon_icon.png');
   }
 
   // Toggle recording state

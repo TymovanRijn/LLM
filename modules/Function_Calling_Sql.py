@@ -2,9 +2,7 @@ import sqlite3
 import json
 from openai import OpenAI
 
-client = OpenAI(
-    api_key= "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",	
-)
+
 
 
 #Delete table Offerte
